@@ -1,0 +1,12 @@
+{
+  "users": {
+    "1427443456": {
+      "expiresAt": 1767226209493,
+      "referredBy": null,
+      "referralsCount": 0,
+      "firstPaymentDone": true,
+      "totalPaidCycles": 1,
+      "bonusDays": 0
+    }
+  }
+}
