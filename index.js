@@ -6,7 +6,7 @@ const path = require('path');
 
 // ---------- CONFIG ----------
 const TG_BOT_TOKEN = process.env.TG_BOT_TOKEN;
-const CHANNEL_ID = process.env.CHANNEL_ID; // ej: @tucanalprivado o -100xxxxx
+const CHANNEL_ID = process.env.CHANNEL_ID; // ej: -100xxxxx o @tugrupo
 const CHANNEL_INVITE_LINK = process.env.CHANNEL_INVITE_LINK; // fallback
 const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID || 0);
 const PORT = Number(process.env.PORT || 3000);
@@ -145,7 +145,7 @@ async function handleReferralOnFirstPayment(userId) {
 
     saveDb(db);
 
-    // notificamos al referido
+    // notificamos al referente
     try {
       await bot.telegram.sendMessage(
         user.referredBy,
@@ -370,19 +370,33 @@ bot.command('pagar', async (ctx) => {
   }
 });
 
-// ---------- RECIBO DE COMPROBANTES ----------
-bot.on(['photo', 'document', 'text'], async (ctx) => {
-  const userId = ctx.from.id;
-  const username = ctx.from.username ? '@' + ctx.from.username : '(sin username)';
-  const name = [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ') || '(sin nombre)';
+// ---------- RECIBO DE COMPROBANTES (SOLO PRIVADO) ----------
+bot.on(['photo', 'document', 'text'], async (ctx, next) => {
+  // ignorar mensajes de otros bots
+  if (ctx.from.is_bot) return;
 
-  if (!ADMIN_CHAT_ID) {
-    await ctx.reply('⚠️ El bot aún no está configurado con un administrador. Avisale al dueño.');
-    return;
+  // solo aceptar comprobantes en chat privado
+  if (ctx.chat.type !== 'private') {
+    return next();
   }
 
-  // ignorar textos que sean comandos
-  if (ctx.message.text && ctx.message.text.startsWith('/')) return;
+  // ignorar textos que sean comandos (/start, /status, etc)
+  if (ctx.message.text && ctx.message.text.startsWith('/')) {
+    return next();
+  }
+
+  const userId = ctx.from.id;
+  const username = ctx.from.username ? '@' + ctx.from.username : '(sin username)';
+  const name =
+    [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ') ||
+    '(sin nombre)';
+
+  if (!ADMIN_CHAT_ID) {
+    await ctx.reply(
+      '⚠️ El bot aún no está configurado con un administrador. Avisale al dueño.'
+    );
+    return;
+  }
 
   await ctx.reply('📩 Recibí tu comprobante. Un admin lo va a revisar.');
 
@@ -431,11 +445,25 @@ bot.on('callback_query', async (ctx) => {
     const fromAdminId = ctx.from.id;
 
     if (fromAdminId !== ADMIN_CHAT_ID) {
-      await ctx.answerCbQuery('No tenés permisos para usar este botón.', { show_alert: true });
+      await ctx.answerCbQuery('No tenés permisos para usar este botón.', {
+        show_alert: true
+      });
       return;
     }
 
     const { action, userId } = parseCallback(data);
+    const msg = ctx.callbackQuery.message;
+
+    // helper para actualizar mensaje del admin según sea media o texto
+    const appendStatus = async (extra) => {
+      if (msg.photo || msg.document) {
+        const oldCaption = msg.caption || '';
+        await ctx.editMessageCaption(oldCaption + extra, { parse_mode: 'Markdown' });
+      } else if (msg.text) {
+        const oldText = msg.text || '';
+        await ctx.editMessageText(oldText + extra, { parse_mode: 'Markdown' });
+      }
+    };
 
     if (action === 'approve') {
       // 1) otorgar suscripción
@@ -458,9 +486,7 @@ bot.on('callback_query', async (ctx) => {
         {
           parse_mode: 'Markdown',
           reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Entrar al canal 🔐', url: inviteLink }]
-            ]
+            inline_keyboard: [[{ text: 'Entrar al canal 🔐', url: inviteLink }]]
           }
         }
       );
@@ -473,10 +499,8 @@ bot.on('callback_query', async (ctx) => {
           `• Para recomendar el canal y ganar días extra, usá /referidos.`
       );
 
-      // 5) actualizar mensaje del admin
-      await ctx.editMessageCaption(
-        (ctx.callbackQuery.message.caption || '') +
-          `\n\n✔ Aprobado. Suscripción hasta: ${formattedDate}`
+      await appendStatus(
+        `\n\n✔ Aprobado. Suscripción hasta: *${formattedDate}*`
       );
       await ctx.answerCbQuery('Acceso enviado al usuario ✅');
     } else if (action === 'reject') {
@@ -485,13 +509,16 @@ bot.on('callback_query', async (ctx) => {
         '❌ Tu comprobante fue rechazado.\n\n' +
           'Si creés que es un error, reenviá una captura clara o el TXID correcto.'
       );
-      await ctx.editMessageCaption((ctx.callbackQuery.message.caption || '') + '\n\n❌ Rechazado.');
+
+      await appendStatus('\n\n❌ Rechazado.');
       await ctx.answerCbQuery('Pago rechazado.');
     }
   } catch (err) {
     console.error('Error en callback_query:', err);
     try {
-      await ctx.answerCbQuery('Ocurrió un error al procesar tu acción.', { show_alert: true });
+      await ctx.answerCbQuery('Ocurrió un error al procesar tu acción.', {
+        show_alert: true
+      });
     } catch (_) {}
   }
 });
