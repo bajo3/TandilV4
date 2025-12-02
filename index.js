@@ -258,17 +258,20 @@ bot.start(async (ctx) => {
     }
   }
 
-  await ctx.reply(
-    '👋 Bienvenido.\n\n' +
-      'Este bot gestiona el acceso a un canal VIP pago.\n\n' +
-      '1️⃣ Pagá *5 USDT (TRC20)* usando /pagar\n' +
-      '2️⃣ Enviá el comprobante (captura o TXID)\n' +
-      '3️⃣ Un admin revisa el pago\n' +
-      '4️⃣ Si está todo ok, recibís un link de acceso *único* al canal\n\n' +
-      'Podés ver el estado de tu suscripción con /status\n' +
-      'Y tu sistema de referidos con /referidos',
-    { parse_mode: 'Markdown' }
-  );
+await ctx.reply(
+  '🔒 *Bienvenido al Área Exclusiva*\n\n' +
+  'Este grupo privado reúne **packs premium**, fotos, videos y contenido que normalmente es pago. Cada aporte ayuda a financiar nuevos packs.\n\n' +
+  'Tu privacidad está protegida y el acceso es 100% anónimo.\n\n' +
+  '💳 *Cómo ingresar*\n' +
+  '1️⃣ Pagá *5 USDT (TRC20)* con /pagar\n' +
+  '2️⃣ Enviá la captura o el TXID\n' +
+  '3️⃣ Un admin revisa el pago\n' +
+  '4️⃣ Te llega un *link único e intransferible* para entrar\n\n' +
+  'ℹ️ Estado de tu acceso: /status\n' +
+  '🎁 Invitá amigos y obtené días gratis: /referidos',
+  { parse_mode: "Markdown" }
+);
+
 });
 
 // /whoami para sacar ADMIN_CHAT_ID
